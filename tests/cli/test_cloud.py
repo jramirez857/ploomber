@@ -20,7 +20,7 @@ def write_sample_conf(tmp_directory, monkeypatch):
     stats = Path('stats')
     stats.mkdir()
     full_path = (stats / DEFAULT_USER_CONF)
-    full_path.write_text("stats_enabled: True")
+    full_path.write_text("stats_enabled: False")
 
 
 @pytest.fixture()
