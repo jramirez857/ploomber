@@ -266,11 +266,24 @@ class NotebookSource(Source):
         if self._path is not None and ext_in is None:
             self._ext_in = self._path.suffix[1:]
         elif self._path is None and ext_in is None:
-            raise ValueError('"ext_in" cannot be None if the notebook is '
-                             'initialized from a string. Either pass '
-                             'a pathlib.Path object with the notebook file '
-                             'location or pass the source code as string '
-                             'and include the "ext_in" parameter')
+
+            if Path(self._primitive).exists():
+                path = str(self._primitive)
+                raise ValueError(
+                    f'The file {path!r} you passed looks like '
+                    'a path to a file. Perhaps you meant passing a '
+                    'pathlib.Path object? Example:\n\n'
+                    'from pathlib import Path\n'
+                    f'NotebookRunner(Path({path!r}))')
+
+            else:
+                raise ValueError(
+                    '"ext_in" cannot be None if the notebook is '
+                    'initialized from a string. Either pass '
+                    'a pathlib.Path object with the notebook file '
+                    'location or pass the source code as string '
+                    'and include the "ext_in" parameter')
+
         elif self._path is not None and ext_in is not None:
             raise ValueError('"ext_in" must be None if notebook is '
                              'initialized from a pathlib.Path object')
