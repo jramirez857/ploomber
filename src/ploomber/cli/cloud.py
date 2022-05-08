@@ -1,30 +1,32 @@
 """
 Implementation of:
 
-$ plomber cloud
+$ ploomber cloud
 
 This command runs a bunch of pip/conda commands (depending on what's available)
 and it does the *right thing*: creating a new environment if needed, and
 locking dependencies.
 """
+import os
 import json
 import uuid
 import warnings
 from datetime import datetime
 from json import JSONDecodeError
-from pathlib import Path
 import http.client as httplib
 import click
 from functools import wraps
+import re
 
 import humanize
 
+from ploomber.exceptions import BaseException
 from ploomber.telemetry import telemetry
-from ploomber.telemetry.telemetry import check_dir_exist, CONF_DIR, \
-    DEFAULT_USER_CONF, read_conf_file, update_conf_file, parse_dag
+from ploomber.telemetry.telemetry import parse_dag, UserSettings
 
-CLOUD_APP_URL = 'ggeheljnx2.execute-api.us-east-1.amazonaws.com'
-PIPELINES_RESOURCE = '/prod/pipelines'
+CLOUD_APP_URL = 'api.ploomber.io'
+PIPELINES_RESOURCE = '/pipelines'
+EMAIL_RESOURCE = '/emailSignup'
 headers = {'Content-type': 'application/json'}
 
 
@@ -33,11 +35,10 @@ def get_key():
     This gets the user cloud api key, returns None if doesn't exist.
     config.yaml is the default user conf file to fetch from.
     """
-    user_conf_path = Path(check_dir_exist(CONF_DIR), DEFAULT_USER_CONF)
-    conf = read_conf_file(user_conf_path)
-    key = conf.get('cloud_key', None)
+    if 'PLOOMBER_CLOUD_KEY' in os.environ:
+        return os.environ['PLOOMBER_CLOUD_KEY']
 
-    return key
+    return UserSettings().cloud_key
 
 
 @telemetry.log_call('set-key')
@@ -52,13 +53,11 @@ def set_key(user_key):
 def _set_key(user_key):
     # Validate key
     if not user_key or len(user_key) != 22:
-        warnings.warn("The API key is malformed.\n"
-                      "Please validate your key or contact the admin\n")
-        return
+        raise BaseException("The API key is malformed.\n"
+                            "Please validate your key or contact the admin.")
 
-    user_key_dict = {'cloud_key': user_key}
-    user_conf_path = Path(check_dir_exist(CONF_DIR), DEFAULT_USER_CONF)
-    update_conf_file(user_conf_path, user_key_dict)
+    settings = UserSettings()
+    settings.cloud_key = user_key
     click.secho("Key was stored")
 
 
@@ -101,8 +100,10 @@ def get_pipeline(pipeline_id=None, verbose=None):
 
         content = conn.getresponse().read()
         pipeline = json.loads(content)
+
         for item in pipeline:
             item['updated'] = get_last_run(item['updated'])
+
         return pipeline
     except JSONDecodeError:
         return "Issue fetching pipeline {}".format(content)
@@ -190,6 +191,7 @@ def delete_pipeline(pipeline_id):
         headers['api_key'] = key
         headers['pipeline_id'] = pipeline_id
         conn.request("DELETE", PIPELINES_RESOURCE, headers=headers)
+
         res = conn.getresponse()
         content = ''
         if res.status < 200 or res.status > 300:
@@ -243,3 +245,43 @@ def cloud_wrapper(payload=False):
         return wrapper
 
     return _cloud_call
+
+
+def _get_input(text):
+    return input(text)
+
+
+def _email_input():
+    # Validate that's the first email registration
+    settings = UserSettings()
+    if not settings.user_email:
+        email = _get_input(
+            "\nPlease add your email to get updates and support "
+            "(type enter to skip): \n")
+        _email_validation(email)
+
+
+def _email_validation(email):
+    pattern = r"[^@]+@[^@]+\.[^@]+"
+    settings = UserSettings()
+    if re.match(pattern, email):
+        # Save in conf file
+        settings.user_email = email
+
+        # Call API
+        _email_registry(email)
+    else:
+        # Save in conf file
+        settings.user_email = 'empty_email'
+
+
+def _email_registry(email):
+    conn = httplib.HTTPSConnection(CLOUD_APP_URL, timeout=3)
+    try:
+        user_headers = {'email': email, 'source': 'OS'}
+        conn.request("POST", EMAIL_RESOURCE, headers=user_headers)
+        print("Thanks for signing up!")
+    except httplib.HTTPException:
+        pass
+    finally:
+        conn.close()

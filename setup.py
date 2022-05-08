@@ -89,7 +89,9 @@ TESTING = [
     # needed to run some test pipelines
     'matplotlib',
     'seaborn',
-    'psycopg2',
+    # https://www.psycopg.org/docs/install.html#psycopg-vs-psycopg-binary
+    # this one is easier to install
+    'psycopg2-binary',
     # requires for some Table tests where we parse the HTML repr
     'lxml',
 
@@ -162,7 +164,6 @@ setup(
         'humanize',
         'tqdm',
         'posthog',
-        'distro',
         'importlib_resources;python_version<"3.7"',
         # for code normalization, parso is also needed for inferring upstream
         # dependencies in jupyter notebooks

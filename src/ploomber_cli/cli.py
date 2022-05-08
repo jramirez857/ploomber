@@ -505,7 +505,7 @@ def cloud_list():
 
 @cloud.command(name="status")
 @click.argument('run_id')
-@click.option('--watch', is_flag=True)
+@click.option('--watch', '-w', is_flag=True)
 def cloud_status(run_id, watch):
     """Get details on a cloud execution
     $ ploomber cloud status {some-id}
@@ -521,7 +521,7 @@ def cloud_status(run_id, watch):
         timeout = 10 * 60
         cumsum = 0
 
-        while True:
+        while cumsum < timeout:
             click.clear()
             out = api.run_detail_print(run_id)
 
@@ -539,14 +539,19 @@ def cloud_status(run_id, watch):
 
 
 @cloud.command(name="products")
-def cloud_products():
+@click.option('-d', '--delete', default=None)
+def cloud_products(delete):
     """List products in cloud workspace
 
     Currently in private alpha, ask us for an invite:
     https://ploomber.io/community
     """
     from ploomber.cloud import api
-    api.products_list()
+
+    if delete:
+        api.delete_products(delete)
+    else:
+        api.products_list()
 
 
 @cloud.command(name="download")
@@ -566,16 +571,38 @@ def cloud_download(pattern):
 
 @cloud.command(name="logs")
 @click.argument('run_id')
-def cloud_logs(run_id):
+@click.option('--image', '-i', is_flag=True)
+@click.option('--watch', '-w', is_flag=True)
+def cloud_logs(run_id, image, watch):
     """Get logs on a cloud execution
-    $ ploomber cloud logs {some-id}
 
+    Get task logs:
+        $ ploomber cloud logs {some-id}
+
+
+    Get Docker image building logs:
+        $ ploomber cloud logs {some-id} --image
 
     Currently in private alpha, ask us for an invite:
     https://ploomber.io/community
     """
     from ploomber.cloud import api
-    api.run_logs(run_id)
+
+    if image:
+        if watch:
+            idle = 2
+            timeout = 10 * 60
+            cumsum = 0
+
+            while cumsum < timeout:
+                click.clear()
+                time.sleep(idle)
+                api.run_logs_image(run_id, tail=20)
+                cumsum += idle
+        else:
+            api.run_logs_image(run_id)
+    else:
+        api.run_logs(run_id)
 
 
 @cloud.command(name="abort")
@@ -590,3 +617,34 @@ def cloud_abort(run_id):
     """
     from ploomber.cloud import api
     api.run_abort(run_id)
+
+
+@cloud.command(name="data")
+@click.option('-u', '--upload', default=None)
+@click.option('-d', '--delete', default=None)
+def cloud_data(upload, delete):
+    """
+    Manage raw data workspace
+
+    List data files:
+        $ ploomber cloud data
+
+    Upload data:
+        $ ploomber cloud data --upload path/to/data.parquet
+
+    Delete data (deletes all the objects matching the pattern):
+        $ ploomber cloud data --delete '*.parquet'
+
+    Currently in private alpha, ask us for an invite:
+    https://ploomber.io/community
+    """
+    from ploomber.cloud import api
+
+    # one arg max
+
+    if upload:
+        api.upload_data(upload)
+    elif delete:
+        api.delete_data(delete)
+    else:
+        api.data_list()

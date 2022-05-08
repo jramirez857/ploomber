@@ -1,3 +1,4 @@
+import platform
 from unittest.mock import Mock
 from pathlib import Path
 
@@ -9,6 +10,34 @@ from ploomber.products import (File, SQLRelation, SQLiteRelation,
                                GenericSQLRelation, PostgresRelation)
 from ploomber.exceptions import DAGWithDuplicatedProducts
 from ploomber.dag import util
+
+
+def dag_simple():
+    dag = DAG()
+
+    PythonCallable(touch_root, File('output/first'), dag, name='task')
+    PythonCallable(touch_root, {
+        'product': File('output/product'),
+        'another': File('output/another')
+    },
+                   dag,
+                   name='another')
+
+    return dag
+
+
+def dag_another():
+    dag = DAG()
+
+    PythonCallable(touch_root, File('products/first'), dag, name='task')
+    PythonCallable(touch_root, {
+        'product': File('output/something/product'),
+        'another': File('output/another')
+    },
+                   dag,
+                   name='another')
+
+    return dag
 
 
 def touch_root(product):
@@ -124,3 +153,46 @@ def test_path_for_plot(tmp_directory):
 
     assert path == 'output.png'
     assert Path(path).read_text() == 'text'
+
+
+def test_iter_file_products():
+    dag = dag_simple()
+
+    assert list(util.iter_file_products(dag)) == [
+        dag['task'].product,
+        dag['another'].product['product'],
+        dag['another'].product['another'],
+    ]
+
+
+@pytest.mark.parametrize('fn, expected', [
+    [dag_simple, ['output']],
+    [dag_another, ['output',
+                   str(Path('output', 'something')), 'products']],
+])
+def test_extract_product_prefixes(fn, expected):
+    dag = fn()
+    assert util.extract_product_prefixes(dag) == expected
+
+
+def test_error_extract_product_prefixes_if_absolute_path():
+    dag = DAG()
+
+    path = str(
+        Path('C:\\path\\to\\another' if platform.system() ==
+             'Windows' else '/absolute/path/to/another'))
+
+    PythonCallable(touch_root, File('output/first'), dag, name='task')
+    PythonCallable(touch_root, {
+        'product': File('output/product'),
+        'another': File(path)
+    },
+                   dag,
+                   name='another')
+
+    with pytest.raises(ValueError) as excinfo:
+        util.extract_product_prefixes(dag)
+
+    expected = ("Absolute product paths are not " f"supported: {path!r}")
+
+    assert str(excinfo.value) == expected
