@@ -55,7 +55,7 @@ def _unserialize_params(params_original, unserializer):
 
 class PythonCallable(Task):
     """
-    Run a Python callable (e.g. a function)
+    Execute a Python function
 
     Parameters
     ----------
@@ -84,6 +84,107 @@ class PythonCallable(Task):
         task's source is responsible for serializing its own product. If
         used, the source function must not have a "product" parameter but
         return its result instead
+
+    Examples
+    --------
+
+    Spec API:
+
+    .. code-block:: yaml
+        :class: text-editor
+        :name: pipeline-yaml
+
+        tasks:
+          - source: my_functions.my_task
+            product: data.csv
+
+
+    .. code-block:: python
+        :class: text-editor
+
+        # content of my_functions.py
+        from pathlib import Path
+
+        def my_task(product):
+            Path(product).touch()
+
+
+    Spec API (multiple outputs):
+
+    .. code-block:: yaml
+        :class: text-editor
+        :name: pipeline-yaml
+
+        tasks:
+          - source: my_functions.another_task
+            product:
+                one: one.csv
+                another: another.csv
+
+
+    .. code-block:: python
+        :class: text-editor
+
+        # content of my_functions.py
+        from pathlib import Path
+
+        def another_task(product):
+            Path(product['one']).touch()
+            Path(product['another']).touch()
+
+    Python API:
+
+    >>> from pathlib import Path
+    >>> from ploomber import DAG
+    >>> from ploomber.tasks import PythonCallable
+    >>> from ploomber.products import File
+    >>> from ploomber.executors import Serial
+    >>> dag = DAG(executor=Serial(build_in_subprocess=False))
+    >>> def my_function(product):
+    ...     # create data.csv
+    ...     Path(product).touch()
+    >>> PythonCallable(my_function, File('data.csv'), dag=dag)
+    PythonCallable: my_function -> File('data.csv')
+    >>> summary = dag.build()
+
+    Python API (multiple products):
+
+
+    >>> from pathlib import Path
+    >>> from ploomber import DAG
+    >>> from ploomber.tasks import PythonCallable
+    >>> from ploomber.products import File
+    >>> from ploomber.executors import Serial
+    >>> dag = DAG(executor=Serial(build_in_subprocess=False))
+    >>> def my_function(product):
+    ...     Path(product['first']).touch()
+    ...     Path(product['second']).touch()
+    >>> product = {'first': File('first.csv'),
+    ...            'second': File('second.csv')}
+    >>> task = PythonCallable(my_function, product, dag=dag)
+    >>> summary = dag.build()
+
+
+    Notes
+    -----
+    More `examples using the Python API. <https://github.com/ploomber/projects/tree/master/python-api-examples>`_ # noqa
+
+    The ``executor=Serial(build_in_subprocess=False)`` argument is only
+    required if copy-pasting the example in a Python session. If you store the
+    code in a script, you may delete it and call ``dag.build`` like this:
+
+    .. code-block:: py
+        :class: text-editor
+
+        if __name__ == '__main__':
+            dag.build()
+
+    Then call your script:
+
+    .. code-block:: console
+        :class: text-editor
+
+        python script.py
     """
     def __init__(self,
                  source,
@@ -269,7 +370,7 @@ def task_factory(_func=None, **factory_kwargs):
 
 
 class ShellScript(ClientMixin, Task):
-    """Execute a shell script in a shell
+    """Execute a shell script.
 
     Parameters
     ----------
@@ -293,6 +394,26 @@ class ShellScript(ClientMixin, Task):
         dependencies along with any parameters declared here. The source
         code is converted to a jinja2.Template for passing parameters,
         refer to jinja2 documentation for details
+
+    Examples
+    --------
+    Spec API:
+
+    :doc:`See here. </user-guide/shell>`
+
+    Python API:
+
+    >>> from pathlib import Path
+    >>> from ploomber import DAG
+    >>> from ploomber.tasks import ShellScript
+    >>> from ploomber.products import File
+    >>> code = "touch {{product['first']}}; touch {{product['second']}}"
+    >>> _ = Path('script.sh').write_text(code)
+    >>> dag = DAG()
+    >>> product = {'first': File('first.txt'), 'second': File('second.txt')}
+    >>> _ = ShellScript(Path('script.sh'), product, dag=dag)
+    >>> summary = dag.build()
+
     """
     def __init__(self,
                  source,

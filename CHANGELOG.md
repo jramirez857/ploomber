@@ -1,6 +1,19 @@
 # CHANGELOG
 
-## 0.19.1dev
+## 0.19.3dev
+
+## 0.19.2 (2022-05-17)
+* Adds documentation for `pipeline.yaml` `meta` section
+* Adds many inline examples
+* Improved docs for `pipeline.yaml` `grid`
+* `ploomber task` prints a confirmation message upon successful execution
+* `DAG.close_clients()` only calls `.close()` on each client once
+* Fixes `dag.plot()` error when dag needs rendering
+
+## 0.19.1 (2022-05-14)
+* Fixes incompatibility with nbconvert 5 ([#741](https://github.com/ploomber/ploomber/issues/741))
+* Improved error messages when the network fails while hitting the cloud build API
+* Hiding posthog error logs ([#744](https://github.com/ploomber/ploomber/issues/744))
 
 ## 0.19 (2022-05-07)
 * `ploomber plot` uses D3 backend if `pygraphviz` is not installed
