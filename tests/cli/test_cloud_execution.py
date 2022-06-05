@@ -11,12 +11,12 @@ from ploomber_cli.cli import cli
 
 @pytest.fixture
 def runid():
-    return 'afabd29e-2622-4349-a398-c330f39e9a95'
+    return 'a9663eee-72c4-4ff7-b82a-460d516000f3'
 
 
 @pytest.fixture
 def taskid():
-    return '3827ee34-7048-44d2-9507-79544d0f0e43'
+    return 'ef9cd110-393f-42bf-bd63-375c66041e3a'
 
 
 def test_cloud_build():
@@ -37,12 +37,11 @@ def test_cloud_list():
 def test_cloud_status(runid):
     runner = CliRunner()
     result = runner.invoke(cli, ['cloud', 'status', runid])
-
-    assert 'taskid' in result.output
-    assert 'name' in result.output
-    assert 'runid' in result.output
-    assert 'status' in result.output
-    assert len(result.output.splitlines()) == 17
+    out = result.output
+    assert 'taskid' in out
+    assert 'name' in out
+    assert 'runid' in out
+    assert 'status' in out
     assert result.exit_code == 0
 
 
@@ -65,7 +64,6 @@ def test_cloud_download(tmp_directory):
 def test_cloud_logs(runid):
     runner = CliRunner()
     result = runner.invoke(cli, ['cloud', 'logs', runid])
-
     assert 'START OF LOGS FOR TASK' in result.output
     assert 'END OF LOGS FOR TASK' in result.output
     assert result.exit_code == 0
